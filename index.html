@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Cyber Ninja: Firewall Slasher - AR Motion Hand-Tracking Game</title>
+  
+  <!-- Cyber Theme Stylesheets -->
+  <link rel="stylesheet" href="css/cyber-theme.css">
+  <link rel="stylesheet" href="css/game-ui.css">
+
+  <!-- Google MediaPipe Hands CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div class="app-container">
+    
+    <!-- Top Navigation Bar -->
+    <header class="top-nav">
+      <div class="brand-container">
+        <img src="assets/images/cyber_ninja_logo.jpg" alt="Logo" class="brand-logo-mini">
+        <div>
+          <div class="brand-title" data-i18n="appTitle">CYBER NINJA</div>
+          <div class="brand-subtitle" data-i18n="tagline">ผ่ามัลแวร์กู้เซิร์ฟเวอร์โรงเรียน</div>
+        </div>
+      </div>
+
+      <!-- Live Tracking Status Indicator -->
+      <div id="trackingStatusPill" class="tracking-status-pill">
+        📷 กำลังเชื่อมต่อระบบ... / Connecting...
+      </div>
+
+      <div class="nav-actions">
+        <button id="btnPauseToggle" class="cyber-btn cyber-btn-gold hidden" title="หยุดเกมชั่วคราว (ESC / P)">⏸️ PAUSE</button>
+        <button id="btnBackMenu" class="cyber-btn cyber-btn-magenta hidden" data-i18n="backToMenu">⬅️ เมนูหลัก</button>
+        <button id="btnSettingsToggle" class="cyber-btn cyber-btn-gold" title="ตั้งค่าระบบเกม (Settings)">⚙️ ตั้งค่า (SETTINGS)</button>
+        <button id="btnFullscreen" class="cyber-btn" data-i18n="fullscreen">⛶ เต็มจอ</button>
+      </div>
+    </header>
+
+    <!-- AR Game Stage Viewport -->
+    <main class="stage-container">
+      
+      <!-- 16:9 AR Game Stage -->
+      <div class="viewport-16-9">
+        <!-- Front-Facing Mirrored Camera Stream -->
+        <video id="cameraFeed" playsinline autoplay muted></video>
+
+        <!-- AR Laser Blade & Threat Overlay Canvas -->
+        <canvas id="gameCanvas" width="1280" height="720"></canvas>
+
+        <!-- In-Game HUD for Mode 1: Score Attack -->
+        <div id="gameHud" class="game-hud hidden">
+          <div class="hud-stat-box">
+            <span class="hud-stat-label" data-i18n="timeRemaining">เวลาเหลือ</span>
+            <span id="hudTimer" class="hud-stat-value">60s</span>
+          </div>
+          <div class="hud-stat-box">
+            <span class="hud-stat-label" data-i18n="score">คะแนน</span>
+            <span id="hudScore" class="hud-stat-value">0</span>
+          </div>
+          <div class="hud-stat-box">
+            <span class="hud-stat-label" data-i18n="combo">คอมโบ</span>
+            <span id="hudCombo" class="hud-stat-value">x1 (0)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Menu Overlay -->
+      <div id="mainMenu" class="menu-overlay">
+        <div class="menu-banner">
+          <img src="assets/images/cyber_ninja_logo.jpg" alt="Cyber Ninja Banner" class="banner-img">
+          <p style="color: var(--cyan-neon); font-size: 0.95rem; font-weight: 600;" data-i18n="cameraMirrorNote">
+            📷 วางแท็บเล็ตบนขาตั้ง ห่าง 1.2 – 1.8 เมตร กล้องหน้าจะสตรีมแบบ Mirror อัตโนมัติ (หรือใช้เมาส์/ทัชสกรีนเล่นได้ทันที)
+          </p>
+        </div>
+
+        <!-- Camp Team Picker -->
+        <div style="margin-bottom: 20px; display: flex; align-items: center; gap: 12px; background: rgba(0,243,255,0.08); padding: 8px 18px; border-radius: 8px; border: 1px solid var(--cyan-neon);">
+          <label for="selectCampTeam" style="font-weight: 700; color: var(--cyan-neon);" data-i18n="selectTeam">เลือกสังกัดทีมของคุณ:</label>
+          <select id="selectCampTeam" style="background: #090e1a; border: 1px solid var(--cyan-neon); color: #fff; padding: 6px 12px; border-radius: 6px; font-family: var(--font-cyber); font-weight: 700; cursor: pointer;">
+            <option value="alpha">ทีม Alpha (Cyber Falcon) 🦅</option>
+            <option value="beta">ทีม Beta (Quantum Tiger) 🐯</option>
+            <option value="gamma">ทีม Gamma (Neon Viper) 🐍</option>
+            <option value="delta">ทีม Delta (Solar Phoenix) 🐦‍🔥</option>
+          </select>
+        </div>
+
+        <!-- 3 Game Mode Cards -->
+        <div class="mode-cards-grid">
+          
+          <!-- Mode 1: Team Score Attack -->
+          <div id="cardMode1" class="mode-card card-mode-1 cyber-panel">
+            <div class="mode-card-icon">⚔️</div>
+            <div class="mode-card-title" data-i18n="btnMode1">โหมด 1: Team Score Attack</div>
+            <div class="mode-card-desc" data-i18n="btnMode1Sub">เดี่ยวสะสมแต้มให้ทีม (60 วินาที) ฟันมัลแวร์ ประคองรับข้อมูลปลอดภัย และชูมือตอบคำถามไซเบอร์</div>
+            <div class="mode-config-row" onclick="event.stopPropagation()">
+              <label style="font-size: 0.85rem; color: var(--cyan-neon);">ระดับความยาก:</label>
+              <select id="selectDifficultyMode1">
+                <option value="1">1. มือใหม่ (Novice)</option>
+                <option value="2" selected>2. ผู้เล่นมีประสบการณ์ (Experienced)</option>
+                <option value="3">3. ผู้เล่นที่มีทักษะ (Skilled)</option>
+                <option value="4">4. ผู้เล่นระดับชำนาญ (Expert)</option>
+                <option value="5">5. เทพกระบี่ (Blade Master - ยากสุด)</option>
+              </select>
+            </div>
+            <button id="btnStartMode1" class="cyber-btn btn-card-action">▶️ เริ่มเล่นโหมดนี้ (PLAY)</button>
+          </div>
+
+          <!-- Mode 2: 1v1 Split Duel -->
+          <div id="cardMode2" class="mode-card card-mode-2 cyber-panel">
+            <div class="mode-card-icon">⚡</div>
+            <div class="mode-card-title" data-i18n="btnMode2">โหมด 2: 1v1 Split Duel</div>
+            <div class="mode-card-desc" data-i18n="btnMode2Sub">ประลองนินจาคู่ จอซ้ายฟ้า-ขวาแดง แข่งขันสะสมแต้มเต็มแมตช์ สุ่มมัลแวร์และไอเท็มปลอดภัย ใครแต้มสูงสุดชนะ!</div>
+            <div class="mode-config-row" onclick="event.stopPropagation()">
+              <label style="font-size: 0.85rem; color: var(--magenta-neon);">เวลา/รอบ:</label>
+              <select id="selectDuelDuration">
+                <option value="15">เกมสั้น (15 วิ)</option>
+                <option value="30" selected>เกมกลาง (30 วิ)</option>
+                <option value="60">เกมปกติ (60 วิ)</option>
+              </select>
+              <label style="font-size: 0.85rem; color: var(--magenta-neon); margin-left: 8px;">จำนวนรอบ:</label>
+              <select id="selectDuelRounds">
+                <option value="1">1 รอบ (Single)</option>
+                <option value="3" selected>3 รอบ (Best of 3)</option>
+                <option value="5">5 รอบ (Best of 5)</option>
+              </select>
+            </div>
+            <button id="btnStartMode2" class="cyber-btn cyber-btn-magenta btn-card-action">▶️ เริ่มประลองคู่ (DUEL)</button>
+          </div>
+
+          <!-- Mode 3: Co-op Firewall Relay -->
+          <div id="cardMode3" class="mode-card card-mode-3 cyber-panel">
+            <div class="mode-card-icon">🛡️</div>
+            <div class="mode-card-title" data-i18n="btnMode3">โหมด 3: Co-op Boss Fight</div>
+            <div class="mode-card-desc" data-i18n="btnMode3Sub">ร่วมมือสู้บอสมอนสเตอร์ Apocalypse Daemon ด้านบนจอ ฟันมัลแวร์ลดเลือดบอส กาง 5 นิ้วรับเพื่อชาร์จหลอดไม้ตาย แล้วกางมือค้าง 3 วิยิงท่าไม้ตายสุดอลังการ!</div>
+            <div class="mode-config-row" onclick="event.stopPropagation()">
+              <label style="font-size: 0.85rem; color: var(--gold-neon);">จำนวนนินจา:</label>
+              <select id="selectRelayRunners">
+                <option value="4" selected>4 คน</option>
+                <option value="5">5 คน</option>
+                <option value="6">6 คน</option>
+                <option value="7">7 คน</option>
+                <option value="8">8 คน</option>
+                <option value="9">9 คน</option>
+                <option value="10">10 คน</option>
+              </select>
+              <label style="font-size: 0.85rem; color: var(--gold-neon); margin-left: 6px;">เวลา/คน:</label>
+              <select id="selectRelayDuration">
+                <option value="15" selected>15 วิ</option>
+                <option value="20">20 วิ</option>
+                <option value="30">30 วิ</option>
+              </select>
+            </div>
+            <div class="mode-config-row" style="margin-top: 6px;" onclick="event.stopPropagation()">
+              <label style="font-size: 0.85rem; color: var(--gold-neon);">ระดับความยาก:</label>
+              <select id="selectDifficultyMode3" onclick="event.stopPropagation()">
+                <option value="1">1. มือใหม่ (Novice)</option>
+                <option value="2" selected>2. ผู้เล่นมีประสบการณ์ (Experienced)</option>
+                <option value="3">3. ผู้เล่นที่มีทักษะ (Skilled)</option>
+                <option value="4">4. ผู้เล่นระดับชำนาญ (Expert)</option>
+                <option value="5">5. เทพกระบี่ (Blade Master - ยากสุด)</option>
+              </select>
+            </div>
+            <button id="btnStartMode3" class="cyber-btn cyber-btn-gold btn-card-action">▶️ ร่วมใจสู้บอส (BOSS FIGHT)</button>
+          </div>
+
+        </div>
+
+        <!-- Bottom Menu Actions -->
+        <div class="menu-bottom-bar">
+          <button id="btnOpenLeaderboard" class="cyber-btn cyber-btn-gold" data-i18n="btnLeaderboard">🏆 ทำเนียบคะแนน (Leaderboard)</button>
+          <button id="btnHowToPlay" class="cyber-btn" data-i18n="btnHowToPlay">📖 คู่มือวิธีเล่น & ท่าไม้ตาย (TUTORIAL)</button>
+          <button id="btnOpenAssetManagerBottom" class="cyber-btn cyber-btn-magenta">🗂️ คลังสื่อ & Sync Data</button>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- ======================================================= -->
+    <!-- Modal: Interactive Visual Tutorial / Gestures Presentation -->
+    <!-- ======================================================= -->
+    <div id="howToPlayModal" class="cyber-modal hidden">
+      <div class="modal-content modal-content-wide cyber-panel">
+        <div class="modal-header">
+          <h2 class="modal-title">🥋 คู่มือวิธีการเล่น & ท่าไม้ตายไซเบอร์ (ACADEMY TUTORIAL)</h2>
+          <button class="modal-close-btn">&times;</button>
+        </div>
+
+        <!-- Tutorial Slide Deck Tabs Bar -->
+        <div class="tutorial-tabs-bar">
+          <button class="tutorial-tab-btn active" data-slide="0">🗡️ 1. ท่าชี้ 1 นิ้วฟัน (Slash)</button>
+          <button class="tutorial-tab-btn" data-slide="1">✋ 2. ท่ากาง 5 นิ้วรับ (Catch)</button>
+          <button class="tutorial-tab-btn" data-slide="2">💡 3. ท่าชูมือตอบคำถาม (Quiz)</button>
+          <button class="tutorial-tab-btn" data-slide="3">🎯 4. แยกแยะวัตถุ (Threat vs Safe)</button>
+          <button class="tutorial-tab-btn" data-slide="4">📷 5. จุดยืนหน้ากล้อง (Setup)</button>
+        </div>
+
+        <!-- SLIDE 0: GESTURE SLASH -->
+        <div class="tutorial-slide active" id="slide0">
+          <div class="tutorial-diagram-box" title="คลิกเพื่อขยายดูภาพใหญ่">
+            <img src="assets/images/tutorial_gesture_slash.jpg" alt="Gesture Slash" class="tutorial-diagram-img">
+            <button class="btn-magnify" type="button">🔍 ซูมดูภาพใหญ่</button>
+          </div>
+          <div class="tutorial-details-box">
+            <h3 class="tutorial-slide-title">🗡️ ท่าที่ 1: ชี้ 1 นิ้วฟันมัลแวร์ (Single-Finger Knife Blade)</h3>
+            <div class="tutorial-step-card">
+              <strong>1. วิธีการทำท่า:</strong> <strong>ชี้ 1 นิ้ว (🗡️)</strong> เหยียดนิ้วชี้ตรง นิ้วอื่นๆ พับงอเข้าฝ่ามือ (มี <strong>จุดสีแดงเรืองแสง</strong> ที่ปลายนิ้วแสดงตำแหน่งแทร็ค) แล้วตวัดฟันผ่านเป้าหมาย
+            </div>
+            <div class="tutorial-step-card">
+              <strong>2. เอฟเฟกต์ Cyber Blade Trail:</strong> ลำแสงดาบเลเซอร์นีออนจะพุ่งออกจากจุดสีแดงที่ปลายนิ้วชี้ ใครฟันโดนมัลแวร์จะถูกผ่าขาดสองท่อนพร้อมประกายไฟดิจิทัล!
+            </div>
+            <div class="tutorial-step-card warning-step">
+              <strong>3. เป้าหมายที่ต้องฟัน:</strong> ม้าโทรจัน (+100), แรนซัมแวร์ (+150), ฟิชชิ่ง (+120), สปายแวร์ (+110), เวิร์ม (+130), บ็อตเน็ต DDoS (+90)
+            </div>
+            <div class="tutorial-step-card gold-step">
+              <strong>🖱️ บนคอมพิวเตอร์ / แล็ปท็อป:</strong> เลื่อนเมาส์ผ่านเป้าหมายอย่างรวดเร็วเพื่อฟันแทนได้ทันที!
+            </div>
+          </div>
+        </div>
+
+        <!-- SLIDE 1: GESTURE CATCH -->
+        <div class="tutorial-slide" id="slide1">
+          <div class="tutorial-diagram-box" title="คลิกเพื่อขยายดูภาพใหญ่">
+            <img src="assets/images/tutorial_gesture_catch.jpg" alt="Gesture Catch" class="tutorial-diagram-img">
+            <button class="btn-magnify" type="button">🔍 ซูมดูภาพใหญ่</button>
+          </div>
+          <div class="tutorial-details-box">
+            <h3 class="tutorial-slide-title" style="color: #ffb703;">✋ ท่าที่ 2: กางมือ 5 นิ้วประคองรับ (5-Finger Open Shield)</h3>
+            <div class="tutorial-step-card gold-step">
+              <strong>1. วิธีการทำท่า:</strong> <strong>กางมือ 5 นิ้วเต็มที่ (✋) หันฝ่ามือตรงเข้าหากล้อง</strong> (เหมือนทำท่า STOP ✋ หรือ High-Five) เพื่อเปิดสนามพลังดูดรับวัตถุข้อมูลปลอดภัยที่กำลังลอยลงมา
+            </div>
+            <div class="tutorial-step-card">
+              <strong>2. สนามพลังแม่เหล็ก (Containment Field):</strong> จะมีวงแหวนสนามพลังสีฟ้า-ทองหมุนวนรอบฝ่ามือ ดูดรับข้อมูลเข้าเซิร์ฟเวอร์อย่างปลอดภัย พร้อมเสียงกระดิ่งใส!
+            </div>
+            <div class="tutorial-step-card warning-step">
+              <strong>🛡️ กฎคุ้มกันเด็ดขาด (Immunity):</strong> เมื่อกาง 5 นิ้ว ดาบเลเซอร์จะปิดการทำงานโดยอัตโนมัติ ทำให้เอื้อมมือไปรับไอเท็มปลอดภัยได้อย่างมั่นใจ ไม่มีทางเผลอฟันทำลายเด็ดขาด!
+            </div>
+            <div class="tutorial-step-card">
+              <strong>🖱️ บนคอมพิวเตอร์ / แล็ปท็อป:</strong> กดปุ่ม <strong>Spacebar</strong> หรือ <strong>คลิกเมาส์ค้าง</strong> เพื่อเปิดท่ากางมือรับ
+            </div>
+          </div>
+        </div>
+
+        <!-- SLIDE 2: GESTURE QUIZ -->
+        <div class="tutorial-slide" id="slide2">
+          <div class="tutorial-diagram-box" title="คลิกเพื่อขยายดูภาพใหญ่">
+            <img src="assets/images/gesture_quiz.svg" alt="Gesture Quiz" class="tutorial-diagram-img">
+            <button class="btn-magnify" type="button">🔍 ซูมดูภาพใหญ่</button>
+          </div>
+          <div class="tutorial-details-box">
+            <h3 class="tutorial-slide-title">💡 ท่าที่ 3: ชูมือตอบคำถามความปลอดภัย (Quiz Selection)</h3>
+            <div class="tutorial-step-card">
+              <strong>1. เหตุการณ์ฉุกเฉินแทรกแซง:</strong> ระหว่างเล่นเกม จะมีโจทย์คำถามความปลอดภัยไซเบอร์พร้อมกล่องลอยตัว <strong>A (ซ้าย-ฟ้า)</strong> และ <strong>B (ขวา-แดง)</strong>
+            </div>
+            <div class="tutorial-step-card">
+              <strong>2. วิธีตอบคำถาม:</strong> ชูมือชี้หรือแตะค้างที่กล่องตัวเลือกที่ถูกต้องประมาณ 0.5 วินาที หรือใช้ดาบฟันตัดกล่องนั้นกลางอากาศ
+            </div>
+            <div class="tutorial-step-card">
+              <strong>3. รางวัลแต้มความรู้:</strong> หากเลือกคำตอบที่ปลอดภัยถูกต้อง รับทันที <strong>+200 แต้มพิเศษ</strong> (หากเลือกผิดจะถูกหัก 100 แต้ม)
+            </div>
+          </div>
+        </div>
+
+        <!-- SLIDE 3: THREAT VS SAFE INFOGRAPHIC -->
+        <div class="tutorial-slide" id="slide3">
+          <div class="tutorial-diagram-box" title="คลิกเพื่อขยายดูภาพใหญ่">
+            <img src="assets/images/threat_vs_safe.svg" alt="Threat vs Safe" class="tutorial-diagram-img">
+            <button class="btn-magnify" type="button">🔍 ซูมดูภาพใหญ่</button>
+          </div>
+          <div class="tutorial-details-box">
+            <h3 class="tutorial-slide-title">🎯 คู่มือแยกแยะวัตถุ: อะไรต้องฟัน VS อะไรต้องแบมือรับ</h3>
+            <div class="tutorial-step-card warning-step">
+              <strong>⚔️ มัลแวร์อันตราย (ต้องฟันทำลาย!):</strong>
+              <ul style="margin-left: 18px; margin-top: 4px;">
+                <li>ม้าโทรจัน 🐴, แรนซัมแวร์กะโหลก 💀, อีเมลฟิชชิ่ง 🎣, สปายแวร์ลูกตา 👁️</li>
+              </ul>
+            </div>
+            <div class="tutorial-step-card gold-step">
+              <strong>✋ ข้อมูลปลอดภัย (ต้องแบมือรับ ห้ามฟัน!):</strong>
+              <ul style="margin-left: 18px; margin-top: 4px;">
+                <li>กุญแจทอง SSL/TLS 🔑 (+200 แต้ม)</li>
+                <li>โล่ไฟร์วอลล์หกเหลี่ยม 🛡️ (+180 แต้ม &amp; ซ่อม HP เซิร์ฟเวอร์ +25)</li>
+                <li>แคปซูลสำรองข้อมูล 💾 (+150 แต้ม)</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- SLIDE 4: CAMERA SETUP -->
+        <div class="tutorial-slide" id="slide4">
+          <div class="tutorial-diagram-box" title="คลิกเพื่อขยายดูภาพใหญ่">
+            <img src="assets/images/gesture_setup.svg" alt="Camera Setup" class="tutorial-diagram-img">
+            <button class="btn-magnify" type="button">🔍 ซูมดูภาพใหญ่</button>
+          </div>
+          <div class="tutorial-details-box">
+            <h3 class="tutorial-slide-title" style="color: #00ff66;">📷 การติดตั้งแท็บเล็ตและจุดยืนของผู้เล่น</h3>
+            <div class="tutorial-step-card">
+              <strong>1. การวางแท็บเล็ต:</strong> วางบนขาตั้งโต๊ะ (Stand) หันกล้องหน้าหาผู้เล่น ความสูงประมาณระดับหน้าอก
+            </div>
+            <div class="tutorial-step-card">
+              <strong>2. ระยะห่างแนะนำ:</strong> <strong>1.2 – 1.8 เมตร</strong> กล้องหน้าจะสตรีมภาพแบบ Mirror อัตโนมัติเหมือนส่องกระจกเงา
+            </div>
+            <div class="tutorial-step-card">
+              <strong>3. สภาพแสงในห้อง:</strong> แสงสว่างสม่ำเสมอ หลีกเลี่ยงแสงย้อนด้านหลังผู้เล่น เพื่อให้ระบบตรวจจับข้อนิ้วได้คมชัดที่สุด
+            </div>
+            <div class="tutorial-step-card gold-step">
+              <strong>📺 โหมดถ่ายทอดออกจอ TV:</strong> หากต่อสาย HDMI หรือ Cast ขึ้นจอทีวี/โปรเจกเตอร์ ให้กดปุ่ม <code>📺 จอ TV / Projector</code> มุมขวาบน เพื่อขยายตัวหนังสือและป้ายคะแนนให้ชัดเจนขึ้น!
+            </div>
+          </div>
+        </div>
+
+        <!-- Slide Deck Navigation Bar -->
+        <div class="tutorial-nav-bar">
+          <button id="btnTutorialPrev" class="cyber-btn">◀️ ก่อนหน้า (Prev)</button>
+          
+          <div class="tutorial-indicator-pills">
+            <span class="tutorial-indicator-dot active" data-slide="0"></span>
+            <span class="tutorial-indicator-dot" data-slide="1"></span>
+            <span class="tutorial-indicator-dot" data-slide="2"></span>
+            <span class="tutorial-indicator-dot" data-slide="3"></span>
+            <span class="tutorial-indicator-dot" data-slide="4"></span>
+          </div>
+
+          <div style="display: flex; gap: 10px;">
+            <button id="btnTutorialNext" class="cyber-btn">ถัดไป (Next) ▶️</button>
+            <button id="btnTutorialStart" class="cyber-btn cyber-btn-gold">🚀 เข้าใจแล้ว เริ่มเล่นเกม!</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ======================================================= -->
+    <!-- Modal: Interactive Image Zoom & Pinch Lightbox           -->
+    <!-- ======================================================= -->
+    <div id="imageZoomModal" class="cyber-modal image-zoom-modal hidden">
+      <div class="image-zoom-container">
+        <!-- Top HUD Toolbar -->
+        <div class="zoom-hud-top">
+          <div class="zoom-title-area">
+            <span class="zoom-icon">🔍</span>
+            <h3 id="zoomImageTitle" class="zoom-title">ภาพประกอบคู่มือการเล่นไซเบอร์</h3>
+          </div>
+
+          <div class="zoom-controls-cluster">
+            <div class="zoom-pct-wrapper">
+              <span class="zoom-pct-label">ซูม:</span>
+              <span id="zoomPctBadge" class="zoom-pct-badge">100%</span>
+            </div>
+            <button id="btnZoomOut" class="cyber-btn zoom-btn-tool" type="button" title="ซูมออก (-)">➖ ย่อ</button>
+            <button id="btnZoomIn" class="cyber-btn zoom-btn-tool" type="button" title="ซูมเข้า (+)">➕ ขยาย</button>
+            <button id="btnZoomReset" class="cyber-btn zoom-btn-tool" type="button" title="รีเซ็ต 100%">🔄 100%</button>
+            <button id="btnCloseZoomModal" class="cyber-btn cyber-btn-magenta zoom-btn-close" type="button" title="ปิด (ESC)">✕ ปิด</button>
+          </div>
+        </div>
+
+        <!-- Central Interactive Viewport -->
+        <div id="zoomViewport" class="zoom-viewport">
+          <div id="zoomCanvasWrapper" class="zoom-canvas-wrapper">
+            <img id="zoomTargetImg" src="assets/images/gesture_slash.svg" alt="Zoomed Diagram" class="zoomable-target-img">
+          </div>
+        </div>
+
+        <!-- Bottom Instruction Bar -->
+        <div class="zoom-hint-bottom">
+          <span>💡 <strong>Scroll เมาส์</strong> หรือ <strong>ถ่าง 2 นิ้วบนจอสัมผัส</strong> เพื่อซูมเข้า-ออก (60% – 500%) | <strong>คลิกลากภาพ</strong> เพื่อเลื่อนดูรายละเอียด | <strong>ดับเบิ้ลคลิก</strong> เพื่อรีเซ็ต</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Camp Leaderboard -->
+    <div id="leaderboardModal" class="cyber-modal hidden">
+      <div class="modal-content cyber-panel">
+        <div class="modal-header">
+          <h2 class="modal-title" data-i18n="leaderboardTitle">🏆 ทำเนียบสุดยอดนินจาไซเบอร์ประจำค่าย</h2>
+          <button class="modal-close-btn">&times;</button>
+        </div>
+        
+        <table class="cyber-table">
+          <thead>
+            <tr>
+              <th data-i18n="rank">อันดับ</th>
+              <th data-i18n="playerName">ชื่อผู้เล่น</th>
+              <th data-i18n="team">สังกัดทีม</th>
+              <th data-i18n="score">คะแนน</th>
+              <th data-i18n="combo">คอมโบสูงสุด</th>
+              <th data-i18n="date">เวลา</th>
+            </tr>
+          </thead>
+          <tbody id="leaderboardBody">
+            <!-- Populated via JavaScript -->
+          </tbody>
+        </table>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px;">
+          <button id="btnExportCsv" class="cyber-btn cyber-btn-gold" data-i18n="exportCsv">📥 ส่งออกข้อมูล (CSV)</button>
+          <button id="btnClearLeaderboard" class="cyber-btn cyber-btn-magenta" data-i18n="clearLeaderboard">🗑️ ล้างคะแนนทั้งหมด</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Operation Results / Debriefing -->
+    <div id="resultsModal" class="cyber-modal hidden">
+      <div class="modal-content cyber-panel" style="max-width: 580px; text-align: center;">
+        <div class="modal-header">
+          <h2 class="modal-title" style="margin: 0 auto;" data-i18n="missionReport">สรุปรายงานปฏิบัติการไซเบอร์</h2>
+        </div>
+
+        <div style="font-size: 3.6rem; font-weight: 900; color: var(--cyan-neon); text-shadow: 0 0 20px var(--cyan-glow); margin: 10px 0;">
+          <span id="resScore">0</span> <span style="font-size: 1.4rem; color: #fff;">PTS</span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; text-align: left; background: rgba(0,0,0,0.4); padding: 14px; border-radius: 8px;">
+          <div><strong data-i18n="combo">:</strong> <span id="resCombo" style="color: var(--gold-neon); font-weight: 700;">x1</span></div>
+          <div><strong data-i18n="malwareSlashed">:</strong> <span id="resSlashed" style="color: var(--green-neon); font-weight: 700;">0</span></div>
+          <div><strong data-i18n="safePacketsCaught">:</strong> <span id="resCaught" style="color: var(--cyan-neon); font-weight: 700;">0</span></div>
+          <div><strong data-i18n="penaltiesIncurred">:</strong> <span id="resPenalties" style="color: var(--magenta-neon); font-weight: 700;">0</span></div>
+        </div>
+
+        <div style="margin: 14px 0; display: flex; flex-direction: column; gap: 8px; text-align: left;">
+          <label for="inputPlayerName" style="font-weight: 700; color: var(--cyan-neon);" data-i18n="playerName">ใส่ชื่อตัวแทนผู้เล่น:</label>
+          <input id="inputPlayerName" type="text" placeholder="Cyber Ninja..." style="background: #090e1a; border: 1.5px solid var(--cyan-neon); color: #fff; padding: 10px 14px; border-radius: 8px; font-family: var(--font-cyber); font-size: 1.1rem; font-weight: 700;">
+        </div>
+
+        <div style="display: flex; gap: 12px; justify-content: center; margin-top: 10px;">
+          <button id="btnSaveScore" class="cyber-btn cyber-btn-gold" data-i18n="saveToLeaderboard">💾 บันทึกคะแนนลงค่าย</button>
+          <button id="btnPlayAgain" class="cyber-btn" data-i18n="playAgain">🔄 เล่นอีกครั้ง</button>
+          <button id="btnMode1BackMenu" class="cyber-btn cyber-btn-magenta" data-i18n="backToMenu">🏠 เมนูหลัก</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Pause Modal -->
+    <div id="pauseModal" class="cyber-modal hidden">
+      <div class="modal-content cyber-panel pause-modal-content">
+        <h2 class="modal-title" style="color: var(--gold-neon); margin-bottom: 20px;">⏸️ เกมหยุดชั่วคราว (PAUSED)</h2>
+        <p style="color: #ffffff; opacity: 0.85; margin-bottom: 24px;">ระบบหยุดการทำงานชั่วคราว กดเลือกการกระทำที่ต้องการ</p>
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+          <button id="btnResumeGame" class="cyber-btn cyber-btn-gold" style="font-size: 1.15rem; padding: 12px;">▶️ ดำเนินการต่อ (RESUME)</button>
+          <button id="btnRestartGame" class="cyber-btn" style="font-size: 1.05rem; padding: 10px;">🔄 เริ่มเล่นรอบใหม่ (RESTART)</button>
+          <button id="btnQuitToMenu" class="cyber-btn cyber-btn-magenta" style="font-size: 1.05rem; padding: 10px;">🏠 กลับสู่เมนูหลัก (QUIT TO MENU)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Mode 2 Duel Results -->
+    <div id="duelResultModal" class="cyber-modal hidden">
+      <div class="modal-content cyber-panel" style="max-width: 680px; text-align: center;">
+        <div class="modal-header">
+          <h2 class="modal-title" style="margin: 0 auto;">⚡ ผลการประลอง 1v1 Split Duel</h2>
+        </div>
+
+        <div id="duelWinnerBanner" class="duel-winner-banner">
+          🏆 PLAYER 1 WINS!
+        </div>
+
+        <div class="duel-result-grid">
+          <!-- P1 Blue Card -->
+          <div class="duel-player-card p1">
+            <h3 style="color: var(--cyan-neon); font-size: 1.2rem; margin-bottom: 8px;">🦅 Player 1 (Blue)</h3>
+            <div style="font-size: 1.8rem; font-weight: 900; color: #fff; margin-bottom: 6px;"><span id="duelP1Score">0</span> PTS</div>
+            <div style="font-size: 0.9rem; color: #ddd; line-height: 1.6;">
+              <div>ชนะรอบ: <strong id="duelP1Rounds" style="color: var(--cyan-neon);">0</strong></div>
+              <div>ฟันมัลแวร์: <strong id="duelP1Slashed" style="color: var(--green-neon);">0</strong></div>
+              <div>รับปลอดภัย: <strong id="duelP1Caught" style="color: var(--gold-neon);">0</strong></div>
+              <div>ผิดพลาด: <strong id="duelP1Penalties" style="color: var(--magenta-neon);">0</strong></div>
+            </div>
+            <input id="inputDuelP1Name" type="text" placeholder="ชื่อผู้เล่น 1 (Blue)..." value="Ninja Blue" style="width: 100%; margin-top: 10px; background: #090e1a; border: 1px solid var(--cyan-neon); color: #fff; padding: 6px 10px; border-radius: 6px; font-family: var(--font-cyber);">
+          </div>
+
+          <!-- P2 Red Card -->
+          <div class="duel-player-card p2">
+            <h3 style="color: var(--magenta-neon); font-size: 1.2rem; margin-bottom: 8px;">🐯 Player 2 (Red)</h3>
+            <div style="font-size: 1.8rem; font-weight: 900; color: #fff; margin-bottom: 6px;"><span id="duelP2Score">0</span> PTS</div>
+            <div style="font-size: 0.9rem; color: #ddd; line-height: 1.6;">
+              <div>ชนะรอบ: <strong id="duelP2Rounds" style="color: var(--magenta-neon);">0</strong></div>
+              <div>ฟันมัลแวร์: <strong id="duelP2Slashed" style="color: var(--green-neon);">0</strong></div>
+              <div>รับปลอดภัย: <strong id="duelP2Caught" style="color: var(--gold-neon);">0</strong></div>
+              <div>ผิดพลาด: <strong id="duelP2Penalties" style="color: var(--magenta-neon);">0</strong></div>
+            </div>
+            <input id="inputDuelP2Name" type="text" placeholder="ชื่อผู้เล่น 2 (Red)..." value="Ninja Red" style="width: 100%; margin-top: 10px; background: #090e1a; border: 1px solid var(--magenta-neon); color: #fff; padding: 6px 10px; border-radius: 6px; font-family: var(--font-cyber);">
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 12px; justify-content: center; margin-top: 14px;">
+          <button id="btnSaveDuelScore" class="cyber-btn cyber-btn-gold">💾 บันทึกผลลง Leaderboard</button>
+          <button id="btnRematchDuel" class="cyber-btn">🔄 ประลองอีกครั้ง</button>
+          <button id="btnDuelBackMenu" class="cyber-btn cyber-btn-magenta">🏠 เมนูหลัก</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Mode 3 Boss Fight Results -->
+    <div id="bossResultModal" class="cyber-modal hidden">
+      <div class="modal-content cyber-panel" style="max-width: 600px; text-align: center;">
+        <div class="modal-header">
+          <h2 class="modal-title" style="margin: 0 auto;">🛡️ สรุปผลศึกกำราบ Apocalypse Daemon</h2>
+        </div>
+
+        <div id="bossResultBanner" style="font-size: 2.2rem; font-weight: 900; margin: 12px 0;">
+          ภารกิจสำเร็จ!
+        </div>
+
+        <div style="font-size: 3.2rem; font-weight: 900; color: var(--gold-neon); margin-bottom: 12px;">
+          <span id="bossFinalScore">0</span> <span style="font-size: 1.3rem; color: #fff;">คะแนนทีม</span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; text-align: left; background: rgba(0,0,0,0.4); padding: 14px; border-radius: 8px;">
+          <div><strong>เลือดบอสคงเหลือ:</strong> <span id="bossRemainingHp" style="color: var(--magenta-neon); font-weight: 700;">0%</span></div>
+          <div><strong>ระดับความยาก:</strong> <span id="bossDiffLabel" style="color: var(--gold-neon); font-weight: 700;">-</span></div>
+          <div><strong>ฟันมัลแวร์รวม:</strong> <span id="bossTotalSlashed" style="color: var(--green-neon); font-weight: 700;">0</span></div>
+          <div><strong>ยิงท่าไม้ตายสำเร็จ:</strong> <span id="bossTotalUltimates" style="color: var(--cyan-neon); font-weight: 700;">0 ครั้ง</span></div>
+        </div>
+
+        <div style="margin: 14px 0; display: flex; flex-direction: column; gap: 8px; text-align: left;">
+          <label for="inputBossTeamName" style="font-weight: 700; color: var(--gold-neon);">ชื่อทีม / โรงเรียน:</label>
+          <input id="inputBossTeamName" type="text" placeholder="Cyber Defense Unit..." style="background: #090e1a; border: 1.5px solid var(--gold-neon); color: #fff; padding: 10px 14px; border-radius: 8px; font-family: var(--font-cyber); font-size: 1.1rem; font-weight: 700;">
+        </div>
+
+        <div style="display: flex; gap: 12px; justify-content: center; margin-top: 12px;">
+          <button id="btnSaveBossScore" class="cyber-btn cyber-btn-gold">💾 บันทึกคะแนนทีม</button>
+          <button id="btnBossPlayAgain" class="cyber-btn">🔄 สู้บอสอีกครั้ง</button>
+          <button id="btnBossBackMenu" class="cyber-btn cyber-btn-magenta">🏠 เมนูหลัก</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================================================= -->
+    <!-- Modal: Global Settings (ฟันเฟือง ตั้งค่าระบบเกม) -->
+    <!-- ======================================================= -->
+    <div id="settingsModal" class="cyber-modal hidden">
+      <div class="modal-content modal-content-wide cyber-panel" style="max-width: 780px; max-height: 88vh; overflow-y: auto;">
+        <div class="modal-header">
+          <h2 class="modal-title">⚙️ ตั้งค่าระบบเกม (GAME SETTINGS)</h2>
+          <button class="modal-close-btn" id="btnCloseSettingsModalX">&times;</button>
+        </div>
+
+        <p style="font-size: 0.95rem; color: #a0aec0; margin-bottom: 16px;">
+          ปรับแต่งระบบเสียง การตรวจจับมือ และการแสดงผลหน้าจอ (ระบบจะหยุดเกมชั่วคราวขณะตั้งค่า)
+        </p>
+
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+          <!-- Group 1: Audio Volume -->
+          <div class="settings-group-card">
+            <h3 style="color: var(--gold-neon); font-size: 1.1rem; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
+              <span>🔊 ระบบเสียง & เพลงประกอบ (Audio & BGM)</span>
+              <button id="btnMuteToggle" class="cyber-btn" style="padding: 4px 12px; font-size: 0.9rem;">🔊 เปิดเสียง</button>
+            </h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
+              <div style="background: rgba(0,0,0,0.35); padding: 12px; border-radius: 8px; border: 1px solid rgba(0,243,255,0.2);">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                  <span style="font-size: 0.9rem; color: var(--cyan-neon); font-weight: 700;">🎵 เพลงประกอบ (BGM Volume):</span>
+                  <span id="labelBgmVol" style="color: var(--cyan-neon); font-weight: 900;">50%</span>
+                </div>
+                <input type="range" id="sliderBgmVolume" min="0" max="100" value="50" class="cyber-slider" style="width: 100%;">
+              </div>
+              <div style="background: rgba(0,0,0,0.35); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,0,85,0.2);">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                  <span style="font-size: 0.9rem; color: var(--magenta-neon); font-weight: 700;">💥 เอฟเฟกต์ฟัน/ระเบิด (SFX Volume):</span>
+                  <span id="labelSfxVol" style="color: var(--magenta-neon); font-weight: 900;">50%</span>
+                </div>
+                <input type="range" id="sliderSfxVolume" min="0" max="100" value="50" class="cyber-slider" style="width: 100%;">
+              </div>
+            </div>
+          </div>
+
+          <!-- Group 2: Hand Tracking & Gestures -->
+          <div class="settings-group-card">
+            <h3 style="color: var(--cyan-neon); font-size: 1.1rem; margin-bottom: 12px;">
+              ✋ ระบบตรวจจับมือ & ท่าทาง (Hand Tracking & Gestures)
+            </h3>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+              <!-- Fist Discard -->
+              <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(0,0,0,0.35); padding: 12px; border-radius: 8px; border: 1px solid rgba(0,243,255,0.2); gap: 14px;">
+                <div>
+                  <div style="font-weight: 700; color: #fff; font-size: 0.95rem;">✊ กำหมัด = พักมือ (Fist Discard)</div>
+                  <div style="font-size: 0.82rem; color: #a0aec0; margin-top: 2px;">เมื่อกำปั้นแน่น ระบบจะไม่ตรวจจับมือนั้น ช่วยให้ผู้เล่นวางพักมือหรือเล่นมือเดียวได้</div>
+                </div>
+                <button id="btnFistToggle" class="cyber-btn active" style="min-width: 140px; white-space: nowrap;">✊ กำหมัด: เปิด</button>
+              </div>
+
+              <!-- Hand Exit Watchdog Toggle -->
+              <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(0,0,0,0.35); padding: 12px; border-radius: 8px; border: 1px solid rgba(0,243,255,0.2); gap: 14px;">
+                <div>
+                  <div style="font-weight: 700; color: #fff; font-size: 0.95rem;">📷 ตรวจสอบมือนำออกจากหน้าจอ (Hand Exit Watchdog)</div>
+                  <div id="watchdogDescText" style="font-size: 0.82rem; color: #a0aec0; margin-top: 2px;">
+                    <strong>ปิด (แนะนำ):</strong> คงตำแหน่งขอบจอไว้ 2 วินาที ป้องกันแทร็กหลุดเมื่อลากฟันมัลแวร์สุดขอบจอหรือล่างจอ
+                  </div>
+                </div>
+                <button id="btnWatchdogToggle" class="cyber-btn" style="min-width: 140px; white-space: nowrap;">📷 ตรวจจับ: ปิด</button>
+              </div>
+
+              <!-- Input Device Mode -->
+              <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(0,0,0,0.35); padding: 12px; border-radius: 8px; border: 1px solid rgba(0,243,255,0.2); gap: 14px;">
+                <div>
+                  <div style="font-weight: 700; color: #fff; font-size: 0.95rem;">🖱️ อุปกรณ์ควบคุมหลัก (Input Control)</div>
+                  <div style="font-size: 0.82rem; color: #a0aec0; margin-top: 2px;">สลับระหว่างกล้องเว็บแคม AR (ตรวจจับท่าทางมือ) กับเมาส์/สัมผัสหน้าจอ</div>
+                </div>
+                <button id="btnSimToggle" class="cyber-btn" style="min-width: 140px; white-space: nowrap;" data-i18n="simToggle">🖱️ โหมดเมาส์</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Group 3: Screen & Assets -->
+          <div class="settings-group-card">
+            <h3 style="color: var(--magenta-neon); font-size: 1.1rem; margin-bottom: 12px;">
+              🖥️ การแสดงผล & จัดการสื่อ (Display & Assets)
+            </h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+              <button id="btnTvToggle" class="cyber-btn" style="padding: 10px;" data-i18n="tvCastToggle">📺 จอ TV / Projector</button>
+              <button id="btnLangToggle" class="cyber-btn" style="padding: 10px;" data-i18n="langToggle">🌐 EN / ภาษาอังกฤษ</button>
+              <button id="btnOpenAssetManagerFromSettings" class="cyber-btn cyber-btn-gold" style="padding: 10px;">🗂️ คลังสื่อ & Sync Data</button>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: center; margin-top: 20px;">
+          <button id="btnCloseSettingsModal" class="cyber-btn cyber-btn-magenta" style="padding: 10px 28px; font-size: 1.05rem;">✅ บันทึก & ปิดหน้าต่าง (CLOSE)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================================================= -->
+    <!-- Modal: Confirm Restart (ถามซ้ำก่อนเริ่มเล่นใหม่) -->
+    <!-- ======================================================= -->
+    <div id="confirmRestartModal" class="cyber-modal hidden" style="z-index: 10000;">
+      <div class="modal-content cyber-panel" style="max-width: 480px; text-align: center; border: 2px solid var(--gold-neon);">
+        <h3 style="color: var(--gold-neon); font-size: 1.45rem; margin-bottom: 12px;">⚠️ ยืนยันการเริ่มเล่นรอบใหม่?</h3>
+        <p id="confirmRestartMessage" style="color: #cbd5e0; font-size: 1rem; line-height: 1.6; margin-bottom: 22px;">
+          คุณต้องการเริ่มเล่นรอบใหม่ทันทีใช่หรือไม่?<br>
+          <span style="color: var(--magenta-neon); font-size: 0.92rem; font-weight: 700;">(หากยังไม่ได้บันทึกคะแนน สถิติการเล่นรอบนี้จะไม่ถูกบันทึก)</span>
+        </p>
+        <div style="display: flex; justify-content: center; gap: 14px;">
+          <button id="btnConfirmRestartYes" class="cyber-btn cyber-btn-gold" style="padding: 10px 20px;">✅ ยืนยันเริ่มใหม่</button>
+          <button id="btnConfirmRestartNo" class="cyber-btn cyber-btn-magenta" style="padding: 10px 20px;">❌ ยกเลิก (กลับไปบันทึก)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================================================= -->
+    <!-- Modal: Asset Manager & Sync Data System -->
+    <!-- ======================================================= -->
+    <div id="assetManagerModal" class="cyber-modal hidden">
+      <div class="modal-content modal-content-wide cyber-panel" style="max-width: 900px; max-height: 88vh; overflow-y: auto;">
+        <div class="modal-header">
+          <h2 class="modal-title">🗂️ คลังจัดการไฟล์สื่อ & ซิงค์ข้อมูล (Asset Manager & Sync Data)</h2>
+          <button class="modal-close-btn" id="btnCloseAssetModalX">&times;</button>
+        </div>
+
+        <p style="font-size: 0.95rem; color: #a0aec0; margin-bottom: 14px; line-height: 1.5;">
+          ปรับแต่งเส้นทางไฟล์เสียงเพลงประกอบ (.mp3, .wav, .ogg) หรือรูปภาพกราฟิก (.jpg, .png, .svg) ของคุณ แล้วกดปุ่ม <strong>"ซิงค์ข้อมูลเข้าเกมทันที"</strong> เพื่อโหลดเข้าสู่โค้ดของเกมและบันทึกไว้ในเบราว์เซอร์อัตโนมัติ
+        </p>
+
+        <div id="syncStatusBanner" class="sync-banner hidden" style="padding: 10px 16px; border-radius: 8px; font-weight: 700; margin-bottom: 14px; text-align: center;"></div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 16px;">
+          <!-- Audio Section -->
+          <div style="background: rgba(0,0,0,0.45); border: 1px solid var(--cyan-neon); border-radius: 8px; padding: 14px;">
+            <h3 style="color: var(--cyan-neon); font-size: 1.15rem; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+              🎵 เพลงประกอบเกม (BGM Tracks)
+            </h3>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <div>
+                <label style="font-size: 0.85rem; color: var(--gold-neon); font-weight: 700;">1. เพลงหน้าเมนูหลัก (Menu BGM):</label>
+                <input id="assetAudioMenu" type="text" class="cyber-input-asset" value="assets/audio/bgm_menu.mp3" style="width: 100%; padding: 6px 10px; background: #080d1a; border: 1px solid #1a365d; color: #fff; border-radius: 6px; font-size: 0.85rem;">
+              </div>
+              <div>
+                <label style="font-size: 0.85rem; color: var(--gold-neon); font-weight: 700;">2. โหมด 1: Team Score Attack BGM:</label>
+                <input id="assetAudioMode1" type="text" class="cyber-input-asset" value="assets/audio/bgm_mode1.mp3" style="width: 100%; padding: 6px 10px; background: #080d1a; border: 1px solid #1a365d; color: #fff; border-radius: 6px; font-size: 0.85rem;">
+              </div>
+              <div>
+                <label style="font-size: 0.85rem; color: var(--gold-neon); font-weight: 700;">3. โหมด 2: 1v1 Split Duel BGM:</label>
+                <input id="assetAudioMode2" type="text" class="cyber-input-asset" value="assets/audio/bgm_mode2.mp3" style="width: 100%; padding: 6px 10px; background: #080d1a; border: 1px solid #1a365d; color: #fff; border-radius: 6px; font-size: 0.85rem;">
+              </div>
+              <div>
+                <label style="font-size: 0.85rem; color: var(--gold-neon); font-weight: 700;">4. โหมด 3: Co-op Boss Raid BGM:</label>
+                <input id="assetAudioMode3" type="text" class="cyber-input-asset" value="assets/audio/bgm_mode3.mp3" style="width: 100%; padding: 6px 10px; background: #080d1a; border: 1px solid #1a365d; color: #fff; border-radius: 6px; font-size: 0.85rem;">
+              </div>
+            </div>
+          </div>
+
+          <!-- Boss Artwork Section -->
+          <div style="background: rgba(0,0,0,0.45); border: 1px solid var(--magenta-neon); border-radius: 8px; padding: 14px;">
+            <h3 style="color: var(--magenta-neon); font-size: 1.15rem; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+              👾 ภาพบอสมอนสเตอร์ & กราฟิก (Bosses & Visuals)
+            </h3>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <div>
+                <label style="font-size: 0.85rem; color: var(--green-neon); font-weight: 700;">บอสระดับ 1 (เวิร์มเขียวนีออน):</label>
+                <input id="assetImgBoss1" type="text" class="cyber-input-asset" value="assets/images/boss_level1.jpg" style="width: 100%; padding: 6px 10px; background: #080d1a; border: 1px solid #1a365d; color: #fff; border-radius: 6px; font-size: 0.85rem;">
+              </div>
+              <div>
+                <label style="font-size: 0.85rem; color: var(--magenta-neon); font-weight: 700;">บอสระดับ 2 (ปีศาจแดงไซเบอร์):</label>
+                <input id="assetImgBoss2" type="text" class="cyber-input-asset" value="assets/images/boss_level2.jpg" style="width: 100%; padding: 6px 10px; background: #080d1a; border: 1px solid #1a365d; color: #fff; border-radius: 6px; font-size: 0.85rem;">
+              </div>
+              <div>
+                <label style="font-size: 0.85rem; color: #b026ff; font-weight: 700;">บอสระดับ 3 (พญาแมงมุมม่วง):</label>
+                <input id="assetImgBoss3" type="text" class="cyber-input-asset" value="assets/images/boss_level3.jpg" style="width: 100%; padding: 6px 10px; background: #080d1a; border: 1px solid #1a365d; color: #fff; border-radius: 6px; font-size: 0.85rem;">
+              </div>
+              <div>
+                <label style="font-size: 0.85rem; color: var(--cyan-neon); font-weight: 700;">บอสระดับ 4 (มังกรไฮดราฟ้า):</label>
+                <input id="assetImgBoss4" type="text" class="cyber-input-asset" value="assets/images/boss_level4.jpg" style="width: 100%; padding: 6px 10px; background: #080d1a; border: 1px solid #1a365d; color: #fff; border-radius: 6px; font-size: 0.85rem;">
+              </div>
+              <div>
+                <label style="font-size: 0.85rem; color: var(--gold-neon); font-weight: 700;">บอสระดับ 5 (ราชันย์ซีโร่เดย์ทอง):</label>
+                <input id="assetImgBoss5" type="text" class="cyber-input-asset" value="assets/images/boss_level5.jpg" style="width: 100%; padding: 6px 10px; background: #080d1a; border: 1px solid #1a365d; color: #fff; border-radius: 6px; font-size: 0.85rem;">
+              </div>
+              <div>
+                <label style="font-size: 0.85rem; color: #fff; font-weight: 700;">โลโก้เกมหน้าแรก (Game Logo):</label>
+                <input id="assetImgLogo" type="text" class="cyber-input-asset" value="assets/images/cyber_ninja_logo.jpg" style="width: 100%; padding: 6px 10px; background: #080d1a; border: 1px solid #1a365d; color: #fff; border-radius: 6px; font-size: 0.85rem;">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 20px;">
+          <button id="btnSyncAssets" class="cyber-btn cyber-btn-gold" style="font-size: 1.05rem; padding: 10px 24px;">🔄 ซิงค์ข้อมูลเข้าเกมทันที (SYNC DATA TO GAME)</button>
+          <button id="btnResetAssets" class="cyber-btn" style="padding: 10px 18px;">↩️ คืนค่าเริ่มต้น (Reset Defaults)</button>
+          <button id="btnCloseAssetModal" class="cyber-btn cyber-btn-magenta" style="padding: 10px 18px;">❌ ปิดหน้าต่าง</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Unified Standalone Game Engine -->
+  <script src="js/game-bundle.js"></script>
+</body>
+</html>
