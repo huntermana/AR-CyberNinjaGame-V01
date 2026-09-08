@@ -76,8 +76,10 @@ export class SafePacket {
 
     // Pulsating golden/cyan shield aura
     const pulse = Math.sin(this.floatPhase) * 6;
-    ctx.shadowBlur = 24 + pulse;
-    ctx.shadowColor = this.color;
+    if (!window.isSmoothMode) {
+      ctx.shadowBlur = 24 + pulse;
+      ctx.shadowColor = this.color;
+    }
 
     // Glowing protective containment ring
     ctx.beginPath();
@@ -124,8 +126,10 @@ export class SafePacket {
     ctx.stroke();
 
     ctx.fillStyle = this.color;
-    ctx.shadowBlur = 6;
-    ctx.shadowColor = this.color;
+    if (!window.isSmoothMode) {
+      ctx.shadowBlur = 6;
+      ctx.shadowColor = this.color;
+    }
     ctx.fillText(badgeText, this.x, this.y - this.radius - 13);
 
     ctx.restore();

@@ -9,7 +9,13 @@ export class ParticleSystem {
 
   // 1. Emit glowing laser sparks at collision point
   emitSparks(x, y, color = '#00f3ff', count = 16, baseSpeed = 300) {
-    for (let i = 0; i < count; i++) {
+    const isSmooth = Boolean(window.isSmoothMode);
+    const maxBudget = isSmooth ? 30 : 90;
+    if (this.particles.length >= maxBudget) return;
+
+    const actualCount = isSmooth ? Math.min(count, 7) : count;
+
+    for (let i = 0; i < actualCount; i++) {
       const angle = Math.random() * Math.PI * 2;
       const speed = (Math.random() * 0.7 + 0.3) * baseSpeed;
       this.particles.push({
@@ -150,25 +156,45 @@ export class ParticleSystem {
       }
 
       // Neon slice laser cut border
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 3;
-      ctx.shadowBlur = 12;
-      ctx.shadowColor = '#00f3ff';
-      ctx.beginPath();
-      ctx.moveTo(-s.radius, 0);
-      ctx.lineTo(s.radius, 0);
-      ctx.stroke();
+      if (window.isSmoothMode) {
+        ctx.strokeStyle = 'rgba(0, 243, 255, 0.4)';
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.moveTo(-s.radius, 0);
+        ctx.lineTo(s.radius, 0);
+        ctx.stroke();
+
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(-s.radius, 0);
+        ctx.lineTo(s.radius, 0);
+        ctx.stroke();
+      } else {
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 3;
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = '#00f3ff';
+        ctx.beginPath();
+        ctx.moveTo(-s.radius, 0);
+        ctx.lineTo(s.radius, 0);
+        ctx.stroke();
+      }
 
       ctx.restore();
     }
 
     // Render particles & sparks
+    const isSmooth = Boolean(window.isSmoothMode);
     for (const p of this.particles) {
       ctx.save();
       ctx.globalAlpha = Math.max(0, p.alpha);
       ctx.fillStyle = p.color;
-      ctx.shadowBlur = 10;
-      ctx.shadowColor = p.color;
+
+      if (!isSmooth) {
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = p.color;
+      }
 
       if (p.shape === 'square') {
         ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);

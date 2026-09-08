@@ -18,8 +18,33 @@ export class MediaPipeAdapter {
     this.lastMouseTime = performance.now();
     this.hasPhysicalHands = false;
     this.isFistDiscardEnabled = true; // Closed Fist Discard (กำหมัด = พักมือ)
+
+    // Quality Mode: 'smooth' (Lite AI, 30 FPS inference, Zero ShadowBlur for tablets) vs 'high' (Full AI, PC glow)
+    const isMobileOrTablet = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+                            (navigator.maxTouchPoints > 1 && window.innerWidth < 1400);
+    let savedQuality = null;
+    try {
+      savedQuality = localStorage.getItem('cyber_ninja_quality');
+    } catch (e) {}
+    this.qualityMode = savedQuality || (isMobileOrTablet ? 'smooth' : 'high');
+    window.isSmoothMode = (this.qualityMode === 'smooth');
     
     this.setupSimulatorEvents();
+  }
+
+  setQualityMode(mode) {
+    this.qualityMode = mode === 'smooth' ? 'smooth' : 'high';
+    window.isSmoothMode = (this.qualityMode === 'smooth');
+    try {
+      localStorage.setItem('cyber_ninja_quality', this.qualityMode);
+    } catch (e) {}
+
+    if (this.hands) {
+      this.hands.setOptions({
+        modelComplexity: this.qualityMode === 'smooth' ? 0 : 1
+      });
+    }
+    return this.qualityMode;
   }
 
   toggleFistDiscard(state = null) {
@@ -47,11 +72,16 @@ export class MediaPipeAdapter {
         return false;
       }
 
-      // 1. Request camera stream
+      // 1. Request camera stream (Optimized resolution for tablets/mobile)
       let stream = null;
+      const isSmooth = window.isSmoothMode;
+      const videoConstraints = isSmooth 
+        ? { width: { ideal: 960, max: 1280 }, height: { ideal: 540, max: 720 }, facingMode: 'user' }
+        : { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' };
+
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+          video: videoConstraints,
           audio: false
         });
       } catch (camErr) {
@@ -70,9 +100,10 @@ export class MediaPipeAdapter {
           locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
         });
 
+        // Use modelComplexity: 0 (Lite) for tablet/smooth mode (3x-4x faster inference!), 1 for high
         this.hands.setOptions({
           maxNumHands: 2,
-          modelComplexity: 1,
+          modelComplexity: this.qualityMode === 'smooth' ? 0 : 1,
           minDetectionConfidence: 0.5,
           minTrackingConfidence: 0.5
         });
@@ -82,10 +113,17 @@ export class MediaPipeAdapter {
         });
 
         let isSending = false;
+        let lastInferenceTime = 0;
         const frameLoop = async () => {
           if (this.isCameraActive && this.hands) {
-            if (!isSending && this.video.readyState >= 2 && this.video.videoWidth > 0) {
+            const now = performance.now();
+            // Frame Pacing: Throttle hands.send() to ~30-33 FPS on tablets (32ms interval)
+            // Prevents thermal throttling & 100% CPU lockup on 120Hz/144Hz screens!
+            const minInterval = window.isSmoothMode ? 32 : 24;
+
+            if (!isSending && (now - lastInferenceTime >= minInterval) && this.video.readyState >= 2 && this.video.videoWidth > 0) {
               isSending = true;
+              lastInferenceTime = now;
               try {
                 await this.hands.send({ image: this.video });
               } catch (e) {

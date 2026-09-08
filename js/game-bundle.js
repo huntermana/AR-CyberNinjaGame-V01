@@ -1560,50 +1560,120 @@ class BladeTrail {
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
+    const isSmooth = Boolean(window.isSmoothMode);
     const now = performance.now();
-    
-    // Outer Neon Glow Ribbon
-    for (let i = 1; i < this.history.length; i++) {
-      const p1 = this.history[i - 1];
-      const p2 = this.history[i];
-      const ageRatio = (now - p2.time) / this.maxAge; // 0 (new) to 1 (old)
-      const alpha = Math.max(0, 1.0 - ageRatio);
-      const width = Math.max(2, (1.0 - ageRatio) * 16);
 
-      ctx.beginPath();
-      ctx.moveTo(p1.x, p1.y);
-      ctx.lineTo(p2.x, p2.y);
-      ctx.strokeStyle = `${mainColor}${alpha})`;
-      ctx.lineWidth = width;
-      ctx.stroke();
-    }
+    if (isSmooth) {
+      // ⚡ FAST TABLET / MOBILE PATH (Zero shadowBlur GPU overhead, 100% hardware rasterized)
+      // Pass 1: Wide Translucent Halo (Soft Neon Blade Aura)
+      for (let i = 1; i < this.history.length; i++) {
+        const p1 = this.history[i - 1];
+        const p2 = this.history[i];
+        const ageRatio = (now - p2.time) / this.maxAge;
+        const alpha = Math.max(0, 1.0 - ageRatio);
+        const width = Math.max(4, (1.0 - ageRatio) * 22);
 
-    // Inner Laser Core (Bright White center)
-    ctx.shadowBlur = 6;
-    for (let i = 1; i < this.history.length; i++) {
-      const p1 = this.history[i - 1];
-      const p2 = this.history[i];
-      const ageRatio = (now - p2.time) / this.maxAge;
-      const alpha = Math.max(0, (1.0 - ageRatio) * 0.9);
-      const width = Math.max(1, (1.0 - ageRatio) * 6);
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.strokeStyle = `${mainColor}${alpha * 0.3})`;
+        ctx.lineWidth = width;
+        ctx.stroke();
+      }
 
-      ctx.beginPath();
-      ctx.moveTo(p1.x, p1.y);
-      ctx.lineTo(p2.x, p2.y);
-      ctx.strokeStyle = `${coreColor}${alpha})`;
-      ctx.lineWidth = width;
-      ctx.stroke();
-    }
+      // Pass 2: Vivid Blade Ribbon
+      for (let i = 1; i < this.history.length; i++) {
+        const p1 = this.history[i - 1];
+        const p2 = this.history[i];
+        const ageRatio = (now - p2.time) / this.maxAge;
+        const alpha = Math.max(0, 1.0 - ageRatio);
+        const width = Math.max(2, (1.0 - ageRatio) * 12);
 
-    // Glowing Katana Tip Particle
-    const latest = this.history[this.history.length - 1];
-    if (latest) {
-      ctx.beginPath();
-      ctx.arc(latest.x, latest.y, 6, 0, Math.PI * 2);
-      ctx.fillStyle = '#ffffff';
-      ctx.shadowBlur = 24;
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.strokeStyle = `${mainColor}${alpha * 0.9})`;
+        ctx.lineWidth = width;
+        ctx.stroke();
+      }
+
+      // Pass 3: Crisp Laser Core (Pure White)
+      for (let i = 1; i < this.history.length; i++) {
+        const p1 = this.history[i - 1];
+        const p2 = this.history[i];
+        const ageRatio = (now - p2.time) / this.maxAge;
+        const alpha = Math.max(0, (1.0 - ageRatio) * 0.95);
+        const width = Math.max(1, (1.0 - ageRatio) * 4);
+
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.strokeStyle = `${coreColor}${alpha})`;
+        ctx.lineWidth = width;
+        ctx.stroke();
+      }
+
+      // Fast Katana Tip Indicator
+      const latest = this.history[this.history.length - 1];
+      if (latest) {
+        ctx.beginPath();
+        ctx.arc(latest.x, latest.y, 9, 0, Math.PI * 2);
+        ctx.fillStyle = isCyan ? 'rgba(0, 243, 255, 0.45)' : 'rgba(255, 0, 85, 0.45)';
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(latest.x, latest.y, 5, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+      }
+    } else {
+      // ✨ HIGH QUALITY PC PATH (Full Gaussian glow shadow blur)
+      ctx.shadowBlur = 18;
       ctx.shadowColor = glowColor;
-      ctx.fill();
+
+      // Outer Neon Glow Ribbon
+      for (let i = 1; i < this.history.length; i++) {
+        const p1 = this.history[i - 1];
+        const p2 = this.history[i];
+        const ageRatio = (now - p2.time) / this.maxAge;
+        const alpha = Math.max(0, 1.0 - ageRatio);
+        const width = Math.max(2, (1.0 - ageRatio) * 16);
+
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.strokeStyle = `${mainColor}${alpha})`;
+        ctx.lineWidth = width;
+        ctx.stroke();
+      }
+
+      // Inner Laser Core
+      ctx.shadowBlur = 6;
+      for (let i = 1; i < this.history.length; i++) {
+        const p1 = this.history[i - 1];
+        const p2 = this.history[i];
+        const ageRatio = (now - p2.time) / this.maxAge;
+        const alpha = Math.max(0, (1.0 - ageRatio) * 0.9);
+        const width = Math.max(1, (1.0 - ageRatio) * 6);
+
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.strokeStyle = `${coreColor}${alpha})`;
+        ctx.lineWidth = width;
+        ctx.stroke();
+      }
+
+      // Glowing Katana Tip Particle
+      const latest = this.history[this.history.length - 1];
+      if (latest) {
+        ctx.beginPath();
+        ctx.arc(latest.x, latest.y, 6, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowBlur = 24;
+        ctx.shadowColor = glowColor;
+        ctx.fill();
+      }
     }
 
     ctx.restore();
@@ -1638,8 +1708,33 @@ class MediaPipeAdapter {
     this.lastMouseTime = performance.now();
     this.hasPhysicalHands = false;
     this.isFistDiscardEnabled = true; // Closed Fist Discard (กำหมัด = พักมือ)
+
+    // Quality Mode: 'smooth' (Lite AI, 30 FPS inference, Zero ShadowBlur for tablets) vs 'high' (Full AI, PC glow)
+    const isMobileOrTablet = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+                            (navigator.maxTouchPoints > 1 && window.innerWidth < 1400);
+    let savedQuality = null;
+    try {
+      savedQuality = localStorage.getItem('cyber_ninja_quality');
+    } catch (e) {}
+    this.qualityMode = savedQuality || (isMobileOrTablet ? 'smooth' : 'high');
+    window.isSmoothMode = (this.qualityMode === 'smooth');
     
     this.setupSimulatorEvents();
+  }
+
+  setQualityMode(mode) {
+    this.qualityMode = mode === 'smooth' ? 'smooth' : 'high';
+    window.isSmoothMode = (this.qualityMode === 'smooth');
+    try {
+      localStorage.setItem('cyber_ninja_quality', this.qualityMode);
+    } catch (e) {}
+
+    if (this.hands) {
+      this.hands.setOptions({
+        modelComplexity: this.qualityMode === 'smooth' ? 0 : 1
+      });
+    }
+    return this.qualityMode;
   }
 
   toggleFistDiscard(state = null) {
@@ -1667,11 +1762,16 @@ class MediaPipeAdapter {
         return false;
       }
 
-      // 1. Request camera stream
+      // 1. Request camera stream (Optimized resolution for tablets/mobile)
       let stream = null;
+      const isSmooth = window.isSmoothMode;
+      const videoConstraints = isSmooth 
+        ? { width: { ideal: 960, max: 1280 }, height: { ideal: 540, max: 720 }, facingMode: 'user' }
+        : { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' };
+
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+          video: videoConstraints,
           audio: false
         });
       } catch (camErr) {
@@ -1690,9 +1790,10 @@ class MediaPipeAdapter {
           locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
         });
 
+        // Use modelComplexity: 0 (Lite) for tablet/smooth mode (3x-4x faster inference!), 1 for high
         this.hands.setOptions({
           maxNumHands: 2,
-          modelComplexity: 1,
+          modelComplexity: this.qualityMode === 'smooth' ? 0 : 1,
           minDetectionConfidence: 0.5,
           minTrackingConfidence: 0.5
         });
@@ -1702,10 +1803,17 @@ class MediaPipeAdapter {
         });
 
         let isSending = false;
+        let lastInferenceTime = 0;
         const frameLoop = async () => {
           if (this.isCameraActive && this.hands) {
-            if (!isSending && this.video.readyState >= 2 && this.video.videoWidth > 0) {
+            const now = performance.now();
+            // Frame Pacing: Throttle hands.send() to ~30-33 FPS on tablets (32ms interval)
+            // Prevents thermal throttling & 100% CPU lockup on 120Hz/144Hz screens!
+            const minInterval = window.isSmoothMode ? 32 : 24;
+
+            if (!isSending && (now - lastInferenceTime >= minInterval) && this.video.readyState >= 2 && this.video.videoWidth > 0) {
               isSending = true;
+              lastInferenceTime = now;
               try {
                 await this.hands.send({ image: this.video });
               } catch (e) {
@@ -1979,7 +2087,13 @@ class ParticleSystem {
 
   // 1. Emit glowing laser sparks at collision point
   emitSparks(x, y, color = '#00f3ff', count = 16, baseSpeed = 300) {
-    for (let i = 0; i < count; i++) {
+    const isSmooth = Boolean(window.isSmoothMode);
+    const maxBudget = isSmooth ? 30 : 90;
+    if (this.particles.length >= maxBudget) return;
+
+    const actualCount = isSmooth ? Math.min(count, 7) : count;
+
+    for (let i = 0; i < actualCount; i++) {
       const angle = Math.random() * Math.PI * 2;
       const speed = (Math.random() * 0.7 + 0.3) * baseSpeed;
       this.particles.push({
@@ -2120,25 +2234,45 @@ class ParticleSystem {
       }
 
       // Neon slice laser cut border
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 3;
-      ctx.shadowBlur = 12;
-      ctx.shadowColor = '#00f3ff';
-      ctx.beginPath();
-      ctx.moveTo(-s.radius, 0);
-      ctx.lineTo(s.radius, 0);
-      ctx.stroke();
+      if (window.isSmoothMode) {
+        ctx.strokeStyle = 'rgba(0, 243, 255, 0.4)';
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.moveTo(-s.radius, 0);
+        ctx.lineTo(s.radius, 0);
+        ctx.stroke();
+
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(-s.radius, 0);
+        ctx.lineTo(s.radius, 0);
+        ctx.stroke();
+      } else {
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 3;
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = '#00f3ff';
+        ctx.beginPath();
+        ctx.moveTo(-s.radius, 0);
+        ctx.lineTo(s.radius, 0);
+        ctx.stroke();
+      }
 
       ctx.restore();
     }
 
     // Render particles & sparks
+    const isSmooth = Boolean(window.isSmoothMode);
     for (const p of this.particles) {
       ctx.save();
       ctx.globalAlpha = Math.max(0, p.alpha);
       ctx.fillStyle = p.color;
-      ctx.shadowBlur = 10;
-      ctx.shadowColor = p.color;
+
+      if (!isSmooth) {
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = p.color;
+      }
 
       if (p.shape === 'square') {
         ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
@@ -2227,8 +2361,10 @@ class Malware {
     ctx.rotate(this.rotation);
 
     // Glowing Threat Aura
-    ctx.shadowBlur = 18;
-    ctx.shadowColor = this.color;
+    if (!window.isSmoothMode) {
+      ctx.shadowBlur = 18;
+      ctx.shadowColor = this.color;
+    }
 
     // Hexagonal / Circular Cyber Base
     ctx.beginPath();
@@ -2258,8 +2394,10 @@ class Malware {
     ctx.save();
     ctx.font = 'bold 13px "Rajdhani", "Kanit", sans-serif';
     ctx.fillStyle = '#ffffff';
-    ctx.shadowBlur = 8;
-    ctx.shadowColor = this.color;
+    if (!window.isSmoothMode) {
+      ctx.shadowBlur = 8;
+      ctx.shadowColor = this.color;
+    }
     ctx.textAlign = 'center';
     ctx.fillText(this.name, this.x, this.y - this.radius - 12);
     ctx.restore();
@@ -2347,8 +2485,10 @@ class SafePacket {
 
     // Pulsating golden/cyan shield aura
     const pulse = Math.sin(this.floatPhase) * 6;
-    ctx.shadowBlur = 24 + pulse;
-    ctx.shadowColor = this.color;
+    if (!window.isSmoothMode) {
+      ctx.shadowBlur = 24 + pulse;
+      ctx.shadowColor = this.color;
+    }
 
     // Glowing protective containment ring
     ctx.beginPath();
@@ -2395,8 +2535,10 @@ class SafePacket {
     ctx.stroke();
 
     ctx.fillStyle = this.color;
-    ctx.shadowBlur = 6;
-    ctx.shadowColor = this.color;
+    if (!window.isSmoothMode) {
+      ctx.shadowBlur = 6;
+      ctx.shadowColor = this.color;
+    }
     ctx.fillText(badgeText, this.x, this.y - this.radius - 13);
 
     ctx.restore();
@@ -4777,6 +4919,38 @@ class CyberNinjaGame {
     });
     updateWatchdogUI();
 
+    // Graphic Quality / Performance Controller (⚡ Smooth/Tablet vs ✨ High Quality/PC)
+    const btnQualityToggle = document.getElementById('btnQualityToggle');
+    const qualityDescText = document.getElementById('qualityDescText');
+    const updateQualityUI = () => {
+      const isSmooth = (this.mediaPipe.qualityMode === 'smooth');
+      if (btnQualityToggle) {
+        btnQualityToggle.classList.toggle('cyber-btn-green', isSmooth);
+        btnQualityToggle.classList.toggle('cyber-btn-gold', !isSmooth);
+        btnQualityToggle.classList.add('active');
+        btnQualityToggle.innerHTML = isSmooth ? '⚡ ลื่นไหล (Smooth)' : '✨ กราฟิกจัดเต็ม (High)';
+      }
+      if (qualityDescText) {
+        if (isSmooth) {
+          qualityDescText.innerHTML = '<strong>⚡ โหมดลื่นไหล (Smooth - แนะนำ):</strong> โมเดล AI Lite, จังหวะส่งภาพ 30 FPS, ปิด ShadowBlur ให้เฟรมเรตนิ่ง 60 FPS บนแท็บเล็ต/มือถือ';
+        } else {
+          qualityDescText.innerHTML = '<strong>✨ กราฟิกจัดเต็ม (High Quality):</strong> โมเดล AI เต็มรูปแบบ พร้อมเอฟเฟกต์แสงเงานีออนเรืองแสง สำหรับคอมพิวเตอร์ตั้งโต๊ะ/โน้ตบุ๊กแรง';
+        }
+      }
+    };
+    btnQualityToggle?.addEventListener('click', () => {
+      audio.init();
+      audio.playCountdown(false);
+      const nextMode = (this.mediaPipe.qualityMode === 'smooth') ? 'high' : 'smooth';
+      this.mediaPipe.setQualityMode(nextMode);
+      updateQualityUI();
+      this.mediaPipe.updateStatus(
+        nextMode === 'smooth' ? '⚡ เปิดโหมดลื่นไหล 60 FPS (Smooth Active)' : '✨ เปิดโหมดกราฟิกจัดเต็ม (High Quality Active)',
+        nextMode === 'smooth' ? '#00ff66' : '#00e5ff'
+      );
+    });
+    updateQualityUI();
+
     // Settings Modal Open / Close & Auto-Pause
     const openSettings = () => {
       audio.init();
@@ -4788,6 +4962,7 @@ class CyberNinjaGame {
       }
 
       updateWatchdogUI();
+      updateQualityUI();
       document.getElementById('settingsModal')?.classList.remove('hidden');
     };
 
@@ -5751,6 +5926,8 @@ class CyberNinjaGame {
 
     // 3. Render Hand Posture & HUD Badges (Open Palm Shield vs 1-Finger Knife Blade with Red Tracker Dot)
     const time = performance.now() * 0.003;
+    const isSmooth = Boolean(window.isSmoothMode);
+
     for (const h of this.detectedHands) {
       if (h.isCatching) {
         this.ctx.save();
@@ -5763,8 +5940,10 @@ class CyberNinjaGame {
         this.ctx.strokeStyle = '#00f3ff';
         this.ctx.lineWidth = 2.5;
         this.ctx.setLineDash([12, 8]);
-        this.ctx.shadowBlur = 18;
-        this.ctx.shadowColor = '#00f3ff';
+        if (!isSmooth) {
+          this.ctx.shadowBlur = 18;
+          this.ctx.shadowColor = '#00f3ff';
+        }
         this.ctx.stroke();
 
         // Inner Gold Pulse Ring
@@ -5779,8 +5958,10 @@ class CyberNinjaGame {
         this.ctx.font = 'bold 13px "Rajdhani", "Kanit", sans-serif';
         this.ctx.fillStyle = '#ffb703';
         this.ctx.textAlign = 'center';
-        this.ctx.shadowBlur = 8;
-        this.ctx.shadowColor = '#ffb703';
+        if (!isSmooth) {
+          this.ctx.shadowBlur = 8;
+          this.ctx.shadowColor = '#ffb703';
+        }
         this.ctx.fillText('✋ SHIELD (กาง 5 นิ้วรับ)', 0, CONFIG.PALM_CATCH_RADIUS + 22);
         this.ctx.restore();
       } else {
@@ -5795,8 +5976,10 @@ class CyberNinjaGame {
         this.ctx.arc(h.tip.x, h.tip.y, 20 * pulse, 0, Math.PI * 2);
         this.ctx.strokeStyle = '#ff0055';
         this.ctx.lineWidth = 2.5;
-        this.ctx.shadowBlur = 20;
-        this.ctx.shadowColor = '#ff0033';
+        if (!isSmooth) {
+          this.ctx.shadowBlur = 20;
+          this.ctx.shadowColor = '#ff0033';
+        }
         this.ctx.stroke();
 
         // 2. Precision Laser Crosshairs
@@ -5817,24 +6000,30 @@ class CyberNinjaGame {
         this.ctx.beginPath();
         this.ctx.arc(h.tip.x, h.tip.y, 9, 0, Math.PI * 2);
         this.ctx.fillStyle = '#ff0033';
-        this.ctx.shadowBlur = 16;
-        this.ctx.shadowColor = '#ff0033';
+        if (!isSmooth) {
+          this.ctx.shadowBlur = 16;
+          this.ctx.shadowColor = '#ff0033';
+        }
         this.ctx.fill();
 
         // 4. Ultra Bright White Laser Diode Core
         this.ctx.beginPath();
         this.ctx.arc(h.tip.x, h.tip.y, 4, 0, Math.PI * 2);
         this.ctx.fillStyle = '#ffffff';
-        this.ctx.shadowBlur = 8;
-        this.ctx.shadowColor = '#ffffff';
+        if (!isSmooth) {
+          this.ctx.shadowBlur = 8;
+          this.ctx.shadowColor = '#ffffff';
+        }
         this.ctx.fill();
 
         // Text Label above fingertip
         this.ctx.font = 'bold 12px "Rajdhani", "Kanit", sans-serif';
         this.ctx.fillStyle = '#ffffff';
         this.ctx.textAlign = 'center';
-        this.ctx.shadowBlur = 8;
-        this.ctx.shadowColor = '#ff0033';
+        if (!isSmooth) {
+          this.ctx.shadowBlur = 8;
+          this.ctx.shadowColor = '#ff0033';
+        }
         this.ctx.fillText('🎯 จุดเล็งฟัน (BLADE)', h.tip.x, h.tip.y - 28);
         this.ctx.restore();
       }

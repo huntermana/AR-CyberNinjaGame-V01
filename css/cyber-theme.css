@@ -98,8 +98,25 @@ body::before {
 
 .cyber-btn.active {
   background: var(--cyan-neon);
-  color: #000;
+  color: #020612 !important;
+  font-weight: 800;
+  text-shadow: none !important;
   box-shadow: 0 0 16px var(--cyan-glow);
+}
+
+.cyber-btn-green {
+  background: rgba(0, 255, 102, 0.12);
+  color: #00ff66;
+  border-color: #00ff66;
+  text-shadow: 0 0 8px rgba(0, 255, 102, 0.5);
+}
+
+.cyber-btn-green:hover, .cyber-btn-green.active {
+  background: #00ff66;
+  color: #020612 !important;
+  font-weight: 800;
+  text-shadow: none !important;
+  box-shadow: 0 0 18px rgba(0, 255, 102, 0.6);
 }
 
 .cyber-btn-magenta {

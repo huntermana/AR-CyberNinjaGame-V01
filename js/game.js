@@ -165,6 +165,38 @@ export class CyberNinjaGame {
     });
     updateWatchdogUI();
 
+    // Graphic Quality / Performance Controller (⚡ Smooth/Tablet vs ✨ High Quality/PC)
+    const btnQualityToggle = document.getElementById('btnQualityToggle');
+    const qualityDescText = document.getElementById('qualityDescText');
+    const updateQualityUI = () => {
+      const isSmooth = (this.mediaPipe.qualityMode === 'smooth');
+      if (btnQualityToggle) {
+        btnQualityToggle.classList.toggle('cyber-btn-green', isSmooth);
+        btnQualityToggle.classList.toggle('cyber-btn-gold', !isSmooth);
+        btnQualityToggle.classList.add('active');
+        btnQualityToggle.innerHTML = isSmooth ? '⚡ ลื่นไหล (Smooth)' : '✨ กราฟิกจัดเต็ม (High)';
+      }
+      if (qualityDescText) {
+        if (isSmooth) {
+          qualityDescText.innerHTML = '<strong>⚡ โหมดลื่นไหล (Smooth - แนะนำ):</strong> โมเดล AI Lite, จังหวะส่งภาพ 30 FPS, ปิด ShadowBlur ให้เฟรมเรตนิ่ง 60 FPS บนแท็บเล็ต/มือถือ';
+        } else {
+          qualityDescText.innerHTML = '<strong>✨ กราฟิกจัดเต็ม (High Quality):</strong> โมเดล AI เต็มรูปแบบ พร้อมเอฟเฟกต์แสงเงานีออนเรืองแสง สำหรับคอมพิวเตอร์ตั้งโต๊ะ/โน้ตบุ๊กแรง';
+        }
+      }
+    };
+    btnQualityToggle?.addEventListener('click', () => {
+      audio.init();
+      audio.playCountdown(false);
+      const nextMode = (this.mediaPipe.qualityMode === 'smooth') ? 'high' : 'smooth';
+      this.mediaPipe.setQualityMode(nextMode);
+      updateQualityUI();
+      this.mediaPipe.updateStatus(
+        nextMode === 'smooth' ? '⚡ เปิดโหมดลื่นไหล 60 FPS (Smooth Active)' : '✨ เปิดโหมดกราฟิกจัดเต็ม (High Quality Active)',
+        nextMode === 'smooth' ? '#00ff66' : '#00e5ff'
+      );
+    });
+    updateQualityUI();
+
     // Settings Modal Open / Close & Auto-Pause
     const openSettings = () => {
       audio.init();
@@ -176,6 +208,7 @@ export class CyberNinjaGame {
       }
 
       updateWatchdogUI();
+      updateQualityUI();
       document.getElementById('settingsModal')?.classList.remove('hidden');
     };
 
@@ -1139,6 +1172,8 @@ export class CyberNinjaGame {
 
     // 3. Render Hand Posture & HUD Badges (Open Palm Shield vs 1-Finger Knife Blade with Red Tracker Dot)
     const time = performance.now() * 0.003;
+    const isSmooth = Boolean(window.isSmoothMode);
+
     for (const h of this.detectedHands) {
       if (h.isCatching) {
         this.ctx.save();
@@ -1151,8 +1186,10 @@ export class CyberNinjaGame {
         this.ctx.strokeStyle = '#00f3ff';
         this.ctx.lineWidth = 2.5;
         this.ctx.setLineDash([12, 8]);
-        this.ctx.shadowBlur = 18;
-        this.ctx.shadowColor = '#00f3ff';
+        if (!isSmooth) {
+          this.ctx.shadowBlur = 18;
+          this.ctx.shadowColor = '#00f3ff';
+        }
         this.ctx.stroke();
 
         // Inner Gold Pulse Ring
@@ -1167,8 +1204,10 @@ export class CyberNinjaGame {
         this.ctx.font = 'bold 13px "Rajdhani", "Kanit", sans-serif';
         this.ctx.fillStyle = '#ffb703';
         this.ctx.textAlign = 'center';
-        this.ctx.shadowBlur = 8;
-        this.ctx.shadowColor = '#ffb703';
+        if (!isSmooth) {
+          this.ctx.shadowBlur = 8;
+          this.ctx.shadowColor = '#ffb703';
+        }
         this.ctx.fillText('✋ SHIELD (กาง 5 นิ้วรับ)', 0, CONFIG.PALM_CATCH_RADIUS + 22);
         this.ctx.restore();
       } else {
@@ -1183,8 +1222,10 @@ export class CyberNinjaGame {
         this.ctx.arc(h.tip.x, h.tip.y, 20 * pulse, 0, Math.PI * 2);
         this.ctx.strokeStyle = '#ff0055';
         this.ctx.lineWidth = 2.5;
-        this.ctx.shadowBlur = 20;
-        this.ctx.shadowColor = '#ff0033';
+        if (!isSmooth) {
+          this.ctx.shadowBlur = 20;
+          this.ctx.shadowColor = '#ff0033';
+        }
         this.ctx.stroke();
 
         // 2. Precision Laser Crosshairs
@@ -1205,24 +1246,30 @@ export class CyberNinjaGame {
         this.ctx.beginPath();
         this.ctx.arc(h.tip.x, h.tip.y, 9, 0, Math.PI * 2);
         this.ctx.fillStyle = '#ff0033';
-        this.ctx.shadowBlur = 16;
-        this.ctx.shadowColor = '#ff0033';
+        if (!isSmooth) {
+          this.ctx.shadowBlur = 16;
+          this.ctx.shadowColor = '#ff0033';
+        }
         this.ctx.fill();
 
         // 4. Ultra Bright White Laser Diode Core
         this.ctx.beginPath();
         this.ctx.arc(h.tip.x, h.tip.y, 4, 0, Math.PI * 2);
         this.ctx.fillStyle = '#ffffff';
-        this.ctx.shadowBlur = 8;
-        this.ctx.shadowColor = '#ffffff';
+        if (!isSmooth) {
+          this.ctx.shadowBlur = 8;
+          this.ctx.shadowColor = '#ffffff';
+        }
         this.ctx.fill();
 
         // Text Label above fingertip
         this.ctx.font = 'bold 12px "Rajdhani", "Kanit", sans-serif';
         this.ctx.fillStyle = '#ffffff';
         this.ctx.textAlign = 'center';
-        this.ctx.shadowBlur = 8;
-        this.ctx.shadowColor = '#ff0033';
+        if (!isSmooth) {
+          this.ctx.shadowBlur = 8;
+          this.ctx.shadowColor = '#ff0033';
+        }
         this.ctx.fillText('🎯 จุดเล็งฟัน (BLADE)', h.tip.x, h.tip.y - 28);
         this.ctx.restore();
       }
